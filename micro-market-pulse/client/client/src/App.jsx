@@ -442,27 +442,13 @@ export default function App() {
               background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
             }}
           >
-            📊 Unified Analytics Dashboard
+            Unified Analytics Dashboard
             <span style={{ fontSize: 12, fontWeight: 400, color: "#94a3b8", marginLeft: 8 }}>
               (Price + Sentiment + Energy Integration)
             </span>
           </div>
           
-          {!analytics || !analytics.recentImpacts || analytics.recentImpacts.count === 0 ? (
-            <div style={{ padding: "40px 20px", textAlign: "center" }}>
-              <div style={{ fontSize: 48, marginBottom: 16 }}>📊</div>
-              <div style={{ fontSize: 18, fontWeight: 600, color: "#cbd5e1", marginBottom: 8 }}>
-                Analytics Will Appear Here
-              </div>
-              <div style={{ fontSize: 14, color: "#94a3b8", lineHeight: 1.6, maxWidth: 600, margin: "0 auto" }}>
-                <strong style={{ color: "#fbbf24" }}>No recent impacts detected yet.</strong>
-                <br />
-                Analytics will populate once sentiment spikes trigger price movements.
-                <br />
-                The dashboard will show energy costs, carbon emissions, and correlation metrics when impacts occur.
-              </div>
-            </div>
-          ) : (
+          {analytics && analytics.recentImpacts && analytics.recentImpacts.count > 0 ? (
             <>
               {/* Impact Analytics */}
               <div style={{ padding: "20px" }}>
@@ -528,6 +514,19 @@ export default function App() {
                 )}
               </div>
             </>
+          ) : (
+            <div style={{ padding: "40px 20px", textAlign: "center" }}>
+              <div style={{ fontSize: 18, fontWeight: 600, color: "#cbd5e1", marginBottom: 8 }}>
+                Analytics Will Appear Here
+              </div>
+              <div style={{ fontSize: 14, color: "#94a3b8", lineHeight: 1.6, maxWidth: 600, margin: "0 auto" }}>
+                <strong style={{ color: "#fbbf24" }}>No recent impacts detected yet.</strong>
+                <br />
+                Analytics will populate once sentiment spikes trigger price movements.
+                <br />
+                The dashboard will show energy costs, carbon emissions, and correlation metrics when impacts occur.
+              </div>
+            </div>
           )}
         </div>
       </div>
@@ -544,28 +543,12 @@ export default function App() {
               fontSize: 16,
             }}
           >
-            📈 Correlation Analytics
+            Correlation Analytics
             <span style={{ fontSize: 12, fontWeight: 400, color: "#94a3b8", marginLeft: 8 }}>
               (Sentiment Spike vs Price Impact vs Energy Cost)
             </span>
           </div>
-          {!analytics || !impacts || impacts.length === 0 ? (
-            <div style={{ padding: "60px 20px", textAlign: "center", minHeight: 400 }}>
-              <div style={{ fontSize: 64, marginBottom: 20, opacity: 0.5 }}>📈</div>
-              <div style={{ fontSize: 18, fontWeight: 600, color: "#cbd5e1", marginBottom: 12 }}>
-                No Correlation Data Available
-              </div>
-              <div style={{ fontSize: 14, color: "#94a3b8", lineHeight: 1.6, maxWidth: 500, margin: "0 auto" }}>
-                <strong style={{ color: "#fbbf24" }}>Waiting for impact events...</strong>
-                <br />
-                This chart will display when sentiment spikes trigger price movements.
-                <br />
-                <span style={{ fontSize: 12, color: "#64748b", marginTop: 8, display: "block" }}>
-                  Bubble size represents energy cost | Colors indicate price direction (green = up, red = down)
-                </span>
-              </div>
-            </div>
-          ) : (
+          {analytics && impacts && impacts.length > 0 ? (
             <div style={{ padding: "20px" }}>
               <Plot
                 data={[
@@ -610,6 +593,21 @@ export default function App() {
                 style={{ width: "100%", height: "100%" }}
               />
             </div>
+          ) : (
+            <div style={{ padding: "60px 20px", textAlign: "center", minHeight: 400 }}>
+              <div style={{ fontSize: 18, fontWeight: 600, color: "#cbd5e1", marginBottom: 12 }}>
+                No Correlation Data Available
+              </div>
+              <div style={{ fontSize: 14, color: "#94a3b8", lineHeight: 1.6, maxWidth: 500, margin: "0 auto" }}>
+                <strong style={{ color: "#fbbf24" }}>Waiting for impact events...</strong>
+                <br />
+                This chart will display when sentiment spikes trigger price movements.
+                <br />
+                <span style={{ fontSize: 12, color: "#64748b", marginTop: 8, display: "block" }}>
+                  Bubble size represents energy cost | Colors indicate price direction (green = up, red = down)
+                </span>
+              </div>
+            </div>
           )}
         </div>
       </div>
@@ -626,28 +624,12 @@ export default function App() {
               fontSize: 16,
             }}
           >
-            ⚡ Energy Impact Timeline
+            Energy Impact Timeline
             <span style={{ fontSize: 12, fontWeight: 400, color: "#94a3b8", marginLeft: 8 }}>
               (Energy & Carbon Costs Over Time)
             </span>
           </div>
-          {!impacts || impacts.length === 0 || !impacts.some((i) => i.energy) ? (
-            <div style={{ padding: "60px 20px", textAlign: "center", minHeight: 350 }}>
-              <div style={{ fontSize: 64, marginBottom: 20, opacity: 0.5 }}>⚡</div>
-              <div style={{ fontSize: 18, fontWeight: 600, color: "#cbd5e1", marginBottom: 12 }}>
-                No Energy Impact Data
-              </div>
-              <div style={{ fontSize: 14, color: "#94a3b8", lineHeight: 1.6, maxWidth: 500, margin: "0 auto" }}>
-                <strong style={{ color: "#fbbf24" }}>Waiting for impact events with energy data...</strong>
-                <br />
-                This timeline will show energy costs (kWh) and carbon emissions (kg) for each detected impact.
-                <br />
-                <span style={{ fontSize: 12, color: "#64748b", marginTop: 8, display: "block" }}>
-                  Yellow line = Energy Cost | Red dashed line = Carbon Cost (×10 scale)
-                </span>
-              </div>
-            </div>
-          ) : (
+          {impacts && impacts.length > 0 && impacts.some((i) => i.energy) ? (
             <div style={{ padding: "20px" }}>
               <Plot
                 data={[
@@ -706,6 +688,21 @@ export default function App() {
                 style={{ width: "100%", height: "100%" }}
               />
             </div>
+          ) : (
+            <div style={{ padding: "60px 20px", textAlign: "center", minHeight: 350 }}>
+              <div style={{ fontSize: 18, fontWeight: 600, color: "#cbd5e1", marginBottom: 12 }}>
+                No Energy Impact Data
+              </div>
+              <div style={{ fontSize: 14, color: "#94a3b8", lineHeight: 1.6, maxWidth: 500, margin: "0 auto" }}>
+                <strong style={{ color: "#fbbf24" }}>Waiting for impact events with energy data...</strong>
+                <br />
+                This timeline will show energy costs (kWh) and carbon emissions (kg) for each detected impact.
+                <br />
+                <span style={{ fontSize: 12, color: "#64748b", marginTop: 8, display: "block" }}>
+                  Yellow line = Energy Cost | Red dashed line = Carbon Cost (×10 scale)
+                </span>
+              </div>
+            </div>
           )}
         </div>
       </div>
@@ -727,7 +724,6 @@ export default function App() {
         <div style={{ border: "1px solid #1f2937", borderTop: "none", borderRadius: "0 0 10px 10px", background: "#0e1726", padding: "12px 14px" }}>
           {impacts.length === 0 ? (
             <div style={{ textAlign: "center", padding: "20px" }}>
-              <div style={{ fontSize: 32, marginBottom: 12, opacity: 0.6 }}>📉</div>
               <div style={{ color: "#cbd5e1", fontWeight: 600, marginBottom: 8 }}>
                 No Recent Impacts Detected
               </div>
@@ -824,7 +820,7 @@ export default function App() {
                   </h3>
                   <div style={{ fontSize: 13, color: "#e5e7eb", lineHeight: 1.8 }}>
                     <div>
-                      🌍 Carbon:{" "}
+                      Carbon:{" "}
                       <strong>
                         {energyData.BTC.annualized?.carbonFootprintMtCO2
                           ? energyData.BTC.annualized.carbonFootprintMtCO2.toFixed(2)
@@ -833,7 +829,7 @@ export default function App() {
                       </strong>
                     </div>
                     <div>
-                      ⚡ Energy:{" "}
+                      Energy:{" "}
                       <strong>
                         {energyData.BTC.annualized?.electricalEnergyTWh
                           ? energyData.BTC.annualized.electricalEnergyTWh.toFixed(2)
@@ -842,7 +838,7 @@ export default function App() {
                       </strong>
                     </div>
                     <div>
-                      🗑️ E-Waste:{" "}
+                      E-Waste:{" "}
                       <strong>
                         {energyData.BTC.annualized?.electronicWasteKt
                           ? energyData.BTC.annualized.electronicWasteKt.toFixed(2)
@@ -851,7 +847,7 @@ export default function App() {
                       </strong>
                     </div>
                     <div>
-                      💧 Water:{" "}
+                      Water:{" "}
                       <strong>
                         {energyData.BTC.annualized?.freshWaterConsumptionGL
                           ? energyData.BTC.annualized.freshWaterConsumptionGL.toFixed(0)
@@ -867,7 +863,7 @@ export default function App() {
                   </h3>
                   <div style={{ fontSize: 13, color: "#e5e7eb", lineHeight: 1.8 }}>
                     <div>
-                      🌍 Carbon:{" "}
+                      Carbon:{" "}
                       <strong>
                         {energyData.BTC.perTransaction?.carbonFootprintKgCO2
                           ? energyData.BTC.perTransaction.carbonFootprintKgCO2.toFixed(2)
@@ -876,7 +872,7 @@ export default function App() {
                       </strong>
                     </div>
                     <div>
-                      ⚡ Energy:{" "}
+                      Energy:{" "}
                       <strong>
                         {energyData.BTC.perTransaction?.electricalEnergyKWh
                           ? energyData.BTC.perTransaction.electricalEnergyKWh.toFixed(2)
@@ -885,7 +881,7 @@ export default function App() {
                       </strong>
                     </div>
                     <div>
-                      🗑️ E-Waste:{" "}
+                      E-Waste:{" "}
                       <strong>
                         {energyData.BTC.perTransaction?.electronicWasteGrams
                           ? energyData.BTC.perTransaction.electronicWasteGrams.toFixed(2)
@@ -894,7 +890,7 @@ export default function App() {
                       </strong>
                     </div>
                     <div>
-                      💧 Water:{" "}
+                      Water:{" "}
                       <strong>
                         {energyData.BTC.perTransaction?.freshWaterConsumptionLiters
                           ? energyData.BTC.perTransaction.freshWaterConsumptionLiters.toFixed(0)

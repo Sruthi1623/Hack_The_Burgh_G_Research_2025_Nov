@@ -40,6 +40,56 @@ const MIN_SEP_MS       = 15_000; // debounce per symbol
 const impacts = [];                    // { sym, t, zSentAtSpike, retPct60s }
 const lastSpikeAt = { BTC: 0, ETH: 0 };
 
+// Generate fake historic data for demonstration
+function generateFakeHistoricImpacts(energyData) {
+  const fakeImpacts = [];
+  const now = Date.now();
+  const symbols = ["BTC", "ETH"];
+  
+  // Generate 15 fake impacts over the last 30 minutes
+  for (let i = 0; i < 15; i++) {
+    const sym = symbols[Math.floor(Math.random() * symbols.length)];
+    const t = now - (i * 2 * 60 * 1000) - Math.random() * 60 * 1000; // Stagger over last 30 min
+    const zSentAtSpike = (Math.random() * 2 + 1.2) * (Math.random() > 0.5 ? 1 : -1); // Between 1.2 and 3.2
+    const retPct60s = (Math.random() * 4 - 2); // Between -2% and +2%
+    const priceAtSpike = sym === "BTC" ? 40000 + Math.random() * 10000 : 2500 + Math.random() * 1000;
+    const priceAfter60s = priceAtSpike * (1 + retPct60s / 100);
+    
+    // Calculate energy metrics if available
+    let energyMetrics = null;
+    if (energyData && energyData[sym]) {
+      const energyPerTx = energyData[sym].perTransaction;
+      const estimatedTxInWindow = sym === "BTC" ? 600 : 180;
+      const energyCostKWh = energyPerTx?.electricalEnergyKWh 
+        ? (energyPerTx.electricalEnergyKWh * estimatedTxInWindow) 
+        : (sym === "BTC" ? 637.5 : 324);
+      const carbonCostKg = energyPerTx?.carbonFootprintKgCO2
+        ? (energyPerTx.carbonFootprintKgCO2 * estimatedTxInWindow)
+        : (sym === "BTC" ? 355.6 : 162);
+
+      energyMetrics = {
+        energyPerTxKWh: energyPerTx?.electricalEnergyKWh || (sym === "BTC" ? 1062.57 : 0.024),
+        estimatedTxInWindow,
+        totalEnergyCostKWh: Number(energyCostKWh.toFixed(2)),
+        totalCarbonCostKg: Number(carbonCostKg.toFixed(2)),
+      };
+    }
+    
+    fakeImpacts.push({
+      sym,
+      t,
+      zSentAtSpike: Number(zSentAtSpike.toFixed(2)),
+      retPct60s: Number(retPct60s.toFixed(3)),
+      priceAtSpike,
+      priceAfter60s,
+      ...(energyMetrics && { energy: energyMetrics }),
+    });
+  }
+  
+  // Sort by time (oldest first, then we'll reverse for display)
+  return fakeImpacts.sort((a, b) => a.t - b.t);
+}
+
 /* --------------------------- Helpers --------------------------- */
 function prune(arr) {
   const cutoff = Date.now() - WINDOW_MS;
@@ -374,6 +424,12 @@ app.get("/signals", async (_req, res) => {
     // Always include energy data for linking
     const energy = await fetchEnergyData();
     
+    // Use fake historic impacts if no real ones exist
+    let impactsToReturn = impacts.slice(-10);
+    if (impactsToReturn.length === 0 && energy) {
+      impactsToReturn = generateFakeHistoricImpacts(energy).slice(-10);
+    }
+    
     // Calculate analytics linking all three datasets
     const analytics = calculateUnifiedAnalytics(energy);
     
@@ -381,7 +437,7 @@ app.get("/signals", async (_req, res) => {
       windowSeconds: WINDOW_MS / 1000,
       symbols: SYMBOLS,
       data: SYMBOLS.map((s) => signalCache[s]).filter(Boolean),
-      impacts: impacts.slice(-10), // last 10 impacts for UI/KPIs
+      impacts: impactsToReturn, // last 10 impacts (real or fake)
       energy, // Always include energy data
       analytics, // Unified analytics
     });
@@ -401,7 +457,13 @@ app.get("/signals", async (_req, res) => {
 function calculateUnifiedAnalytics(energy) {
   if (!energy) return null;
 
-  const last10Impacts = impacts.slice(-10);
+  // If no real impacts, use fake historic data
+  let impactsToUse = impacts.slice(-10);
+  if (impactsToUse.length === 0) {
+    impactsToUse = generateFakeHistoricImpacts(energy).slice(-10);
+  }
+
+  const last10Impacts = impactsToUse;
   const btcImpacts = last10Impacts.filter((i) => i.sym === "BTC");
   const ethImpacts = last10Impacts.filter((i) => i.sym === "ETH");
 
