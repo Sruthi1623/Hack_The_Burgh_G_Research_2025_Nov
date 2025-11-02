@@ -270,11 +270,11 @@ export default function App() {
         Live fusion of Binance prices and real-time mentions. Click a row to focus its sparkline.
       </p>
 
-      {/* KPIs */}
+      {/* Enhanced KPIs with Energy */}
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(3, 1fr)",
+          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
           gap: 12,
           padding: "0 20px 12px 20px",
         }}
@@ -282,6 +282,20 @@ export default function App() {
         <KPI title="Impacts (last 10)" value={impactCount} />
         <KPI title="Average Impact" value={`${avgImpact}%`} />
         <KPI title="Win Rate" value={`${winRate}%`} />
+        {analytics && (
+          <>
+            <KPI 
+              title="Total Energy Cost" 
+              value={analytics.recentImpacts?.totalEnergyCostKWh ? `${analytics.recentImpacts.totalEnergyCostKWh.toFixed(1)} kWh` : "N/A"}
+              color="#fbbf24"
+            />
+            <KPI 
+              title="Total Carbon Cost" 
+              value={analytics.recentImpacts?.totalCarbonCostKg ? `${analytics.recentImpacts.totalCarbonCostKg.toFixed(1)} kg` : "N/A"}
+              color="#ef4444"
+            />
+          </>
+        )}
       </div>
 
       {/* Table */}
@@ -415,47 +429,228 @@ export default function App() {
         )}
       </div>
 
-      {/* Analytics Dashboard */}
+      {/* Enhanced Analytics Dashboard */}
       {analytics && (
         <div style={{ padding: "0 20px 12px 20px" }}>
-          <div style={{ border: "1px solid #1f2937", borderRadius: 10, background: "#0e1726" }}>
+          <div style={{ border: "1px solid #1f2937", borderRadius: 10, background: "#0e1726", overflow: "hidden" }}>
             <div
               style={{
-                padding: "12px 14px",
+                padding: "16px 20px",
                 borderBottom: "1px solid #1f2937",
                 fontWeight: 700,
                 color: "#cbd5e1",
+                fontSize: 16,
+                background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
               }}
             >
-              Unified Analytics (Price + Sentiment + Energy)
+              📊 Unified Analytics Dashboard
+              <span style={{ fontSize: 12, fontWeight: 400, color: "#94a3b8", marginLeft: 8 }}>
+                (Price + Sentiment + Energy Integration)
+              </span>
             </div>
-            <div style={{ padding: "12px 14px" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
-                <div>
-                  <div style={{ color: "#94a3b8", fontSize: 12, marginBottom: 4 }}>Recent Impacts</div>
-                  <div style={{ fontSize: 18, fontWeight: 700, color: "#e5e7eb" }}>
-                    {analytics.recentImpacts?.count || 0}
-                  </div>
-                </div>
-                <div>
-                  <div style={{ color: "#94a3b8", fontSize: 12, marginBottom: 4 }}>Total Energy Cost</div>
-                  <div style={{ fontSize: 18, fontWeight: 700, color: "#fbbf24" }}>
-                    {analytics.recentImpacts?.totalEnergyCostKWh || 0} kWh
-                  </div>
-                </div>
-                <div>
-                  <div style={{ color: "#94a3b8", fontSize: 12, marginBottom: 4 }}>Total Carbon Cost</div>
-                  <div style={{ fontSize: 18, fontWeight: 700, color: "#ef4444" }}>
-                    {analytics.recentImpacts?.totalCarbonCostKg || 0} kg
-                  </div>
-                </div>
-                <div>
-                  <div style={{ color: "#94a3b8", fontSize: 12, marginBottom: 4 }}>Avg Price Change</div>
-                  <div style={{ fontSize: 18, fontWeight: 700, color: "#e5e7eb" }}>
-                    {fmt(analytics.recentImpacts?.avgPriceChange || 0, 3)}%
-                  </div>
-                </div>
+            
+            {/* Impact Analytics */}
+            <div style={{ padding: "20px" }}>
+              <h3 style={{ margin: "0 0 16px 0", fontSize: 14, fontWeight: 600, color: "#cbd5e1" }}>
+                Recent Impact Metrics
+              </h3>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginBottom: 24 }}>
+                <MetricCard
+                  label="Total Impacts"
+                  value={analytics.recentImpacts?.count || 0}
+                  subValue={`BTC: ${analytics.recentImpacts?.btcCount || 0} | ETH: ${analytics.recentImpacts?.ethCount || 0}`}
+                  color="#60a5fa"
+                />
+                <MetricCard
+                  label="Total Energy Cost"
+                  value={analytics.recentImpacts?.totalEnergyCostKWh ? `${analytics.recentImpacts.totalEnergyCostKWh.toFixed(2)} kWh` : "N/A"}
+                  subValue="From last 10 impacts"
+                  color="#fbbf24"
+                />
+                <MetricCard
+                  label="Total Carbon Cost"
+                  value={analytics.recentImpacts?.totalCarbonCostKg ? `${analytics.recentImpacts.totalCarbonCostKg.toFixed(2)} kg CO₂` : "N/A"}
+                  subValue="From last 10 impacts"
+                  color="#ef4444"
+                />
+                <MetricCard
+                  label="Avg Price Change"
+                  value={`${fmt(analytics.recentImpacts?.avgPriceChange || 0, 3)}%`}
+                  subValue="Per impact event"
+                  color="#10b981"
+                />
+                <MetricCard
+                  label="Avg Sentiment Spike"
+                  value={fmt(analytics.recentImpacts?.avgSentimentSpike || 0, 2)}
+                  subValue="Z-score magnitude"
+                  color="#a78bfa"
+                />
               </div>
+
+              {/* Network Energy Metrics */}
+              {analytics.networkMetrics && (
+                <div style={{ marginTop: 24 }}>
+                  <h3 style={{ margin: "0 0 16px 0", fontSize: 14, fontWeight: 600, color: "#cbd5e1" }}>
+                    Network Energy Metrics
+                  </h3>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: 16 }}>
+                    {analytics.networkMetrics.BTC && (
+                      <NetworkMetricCard
+                        symbol="BTC"
+                        data={analytics.networkMetrics.BTC}
+                        color="#f59e0b"
+                      />
+                    )}
+                    {analytics.networkMetrics.ETH && (
+                      <NetworkMetricCard
+                        symbol="ETH"
+                        data={analytics.networkMetrics.ETH}
+                        color="#8b5cf6"
+                      />
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Correlation Analytics Charts */}
+      {analytics && impacts.length > 0 && (
+        <div style={{ padding: "0 20px 12px 20px" }}>
+          <div style={{ border: "1px solid #1f2937", borderRadius: 10, background: "#0e1726", overflow: "hidden" }}>
+            <div
+              style={{
+                padding: "16px 20px",
+                borderBottom: "1px solid #1f2937",
+                fontWeight: 700,
+                color: "#cbd5e1",
+                fontSize: 16,
+              }}
+            >
+              📈 Correlation Analytics
+            </div>
+            <div style={{ padding: "20px" }}>
+              <Plot
+                data={[
+                  {
+                    x: impacts.slice(-10).map((i) => Math.abs(i.zSentAtSpike || 0)),
+                    y: impacts.slice(-10).map((i) => Math.abs(i.retPct60s || 0)),
+                    type: "scatter",
+                    mode: "markers+text",
+                    text: impacts.slice(-10).map((i) => i.sym),
+                    textposition: "top",
+                    name: "Sentiment vs Price Impact",
+                    marker: {
+                      size: impacts.slice(-10).map((i) => 
+                        (i.energy?.totalEnergyCostKWh || 0) * 2 + 8
+                      ),
+                      color: impacts.slice(-10).map((i) =>
+                        i.retPct60s > 0 ? "#10b981" : i.retPct60s < 0 ? "#ef4444" : "#94a3b8"
+                      ),
+                      line: { width: 2, color: "#1f2937" },
+                    },
+                  },
+                ]}
+                layout={{
+                  title: "Sentiment Spike Magnitude vs Price Impact (Bubble size = Energy Cost)",
+                  xaxis: { 
+                    title: "Sentiment Z-Score Magnitude", 
+                    color: "#e5e7eb",
+                    gridcolor: "#1f2937",
+                  },
+                  yaxis: { 
+                    title: "Price Change % (60s)", 
+                    color: "#e5e7eb",
+                    gridcolor: "#1f2937",
+                  },
+                  paper_bgcolor: "#0e1726",
+                  plot_bgcolor: "#0e1726",
+                  font: { color: "#e5e7eb", size: 12 },
+                  height: 400,
+                  margin: { l: 60, r: 20, t: 60, b: 60 },
+                }}
+                useResizeHandler
+                style={{ width: "100%", height: "100%" }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Energy Impact Timeline Chart */}
+      {impacts.length > 0 && impacts.some((i) => i.energy) && (
+        <div style={{ padding: "0 20px 12px 20px" }}>
+          <div style={{ border: "1px solid #1f2937", borderRadius: 10, background: "#0e1726", overflow: "hidden" }}>
+            <div
+              style={{
+                padding: "16px 20px",
+                borderBottom: "1px solid #1f2937",
+                fontWeight: 700,
+                color: "#cbd5e1",
+                fontSize: 16,
+              }}
+            >
+              ⚡ Energy Impact Timeline
+            </div>
+            <div style={{ padding: "20px" }}>
+              <Plot
+                data={[
+                  {
+                    x: impacts.filter((i) => i.energy?.totalEnergyCostKWh).map((i) => new Date(i.t)),
+                    y: impacts.filter((i) => i.energy?.totalEnergyCostKWh).map((i) => i.energy.totalEnergyCostKWh),
+                    type: "scatter",
+                    mode: "lines+markers",
+                    name: "Energy Cost per Impact",
+                    line: { color: "#fbbf24", width: 2 },
+                    marker: { 
+                      size: 10, 
+                      color: impacts.filter((i) => i.energy?.totalEnergyCostKWh).map((i) =>
+                        i.retPct60s > 0 ? "#10b981" : "#ef4444"
+                      ),
+                    },
+                    fill: "tonexty",
+                    fillcolor: "rgba(251, 191, 36, 0.1)",
+                  },
+                  {
+                    x: impacts.filter((i) => i.energy?.totalCarbonCostKg).map((i) => new Date(i.t)),
+                    y: impacts.filter((i) => i.energy?.totalCarbonCostKg).map((i) => i.energy.totalCarbonCostKg * 10),
+                    type: "scatter",
+                    mode: "lines",
+                    name: "Carbon Cost (×10 for scale)",
+                    line: { color: "#ef4444", width: 2, dash: "dash" },
+                    yaxis: "y2",
+                  },
+                ]}
+                layout={{
+                  title: "Energy & Carbon Costs Over Time",
+                  xaxis: { 
+                    title: "Time", 
+                    color: "#e5e7eb",
+                    gridcolor: "#1f2937",
+                  },
+                  yaxis: { 
+                    title: "Energy Cost (kWh)", 
+                    color: "#fbbf24",
+                    gridcolor: "#1f2937",
+                  },
+                  yaxis2: {
+                    title: "Carbon Cost × 10 (kg)",
+                    overlaying: "y",
+                    side: "right",
+                    color: "#ef4444",
+                  },
+                  paper_bgcolor: "#0e1726",
+                  plot_bgcolor: "#0e1726",
+                  font: { color: "#e5e7eb", size: 12 },
+                  height: 350,
+                  margin: { l: 60, r: 60, t: 60, b: 60 },
+                  legend: { x: 0, y: 1 },
+                }}
+                useResizeHandler
+                style={{ width: "100%", height: "100%" }}
+              />
             </div>
           </div>
         </div>
@@ -688,7 +883,7 @@ export default function App() {
 }
 
 /** Small KPI card */
-function KPI({ title, value }) {
+function KPI({ title, value, color = "#e5e7eb" }) {
   return (
     <div
       style={{
@@ -699,7 +894,88 @@ function KPI({ title, value }) {
       }}
     >
       <div style={{ color: "#94a3b8", fontSize: 12, letterSpacing: 0.3 }}>{title}</div>
-      <div style={{ marginTop: 4, fontSize: 22, fontWeight: 800, color: "#e5e7eb" }}>{value}</div>
+      <div style={{ marginTop: 4, fontSize: 22, fontWeight: 800, color }}>{value}</div>
+    </div>
+  );
+}
+
+/** Metric Card for Analytics */
+function MetricCard({ label, value, subValue, color = "#e5e7eb" }) {
+  return (
+    <div
+      style={{
+        background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
+        border: `1px solid ${color}33`,
+        borderRadius: 10,
+        padding: 16,
+      }}
+    >
+      <div style={{ color: "#94a3b8", fontSize: 11, fontWeight: 600, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>
+        {label}
+      </div>
+      <div style={{ fontSize: 24, fontWeight: 800, color, marginBottom: 4 }}>
+        {value}
+      </div>
+      {subValue && (
+        <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>
+          {subValue}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Network Metric Card */
+function NetworkMetricCard({ symbol, data, color }) {
+  return (
+    <div
+      style={{
+        background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
+        border: `1px solid ${color}33`,
+        borderRadius: 10,
+        padding: 16,
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", marginBottom: 12 }}>
+        <div style={{ fontSize: 18, fontWeight: 700, color, marginRight: 8 }}>
+          {symbol}
+        </div>
+        <div style={{ fontSize: 11, color: "#64748b" }}>Network Metrics</div>
+      </div>
+      <div style={{ display: "grid", gap: 10 }}>
+        {data.energyPerTxKWh && (
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+            <span style={{ color: "#94a3b8" }}>Energy/Tx:</span>
+            <span style={{ color: "#e5e7eb", fontWeight: 600 }}>
+              {data.energyPerTxKWh.toFixed(2)} kWh
+            </span>
+          </div>
+        )}
+        {data.carbonPerTxKg && (
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+            <span style={{ color: "#94a3b8" }}>Carbon/Tx:</span>
+            <span style={{ color: "#e5e7eb", fontWeight: 600 }}>
+              {data.carbonPerTxKg.toFixed(2)} kg
+            </span>
+          </div>
+        )}
+        {data.annualEnergyTWh && (
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+            <span style={{ color: "#94a3b8" }}>Annual Energy:</span>
+            <span style={{ color: "#e5e7eb", fontWeight: 600 }}>
+              {data.annualEnergyTWh.toFixed(2)} TWh
+            </span>
+          </div>
+        )}
+        {data.annualCarbonMt && (
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+            <span style={{ color: "#94a3b8" }}>Annual Carbon:</span>
+            <span style={{ color: "#e5e7eb", fontWeight: 600 }}>
+              {data.annualCarbonMt.toFixed(2)} Mt
+            </span>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
