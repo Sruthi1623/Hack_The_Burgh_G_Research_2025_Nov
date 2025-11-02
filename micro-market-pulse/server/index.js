@@ -21,7 +21,11 @@ const priceStore = { BTC: [], ETH: [] };  // each: [{ t, v }]
 const infoStore  = { BTC: [], ETH: [] };  // each: [{ t, v }]
 const signalCache = { BTC: null, ETH: null };
 
-// --- Seed so UI isn't empty at start ---
+// --- Energy consumption data cache ---
+let energyData = null;
+let lastEnergyFetch = 0;
+const ENERGY_CACHE_MS = 3600000; // Cache for 1 hour (data updates daily)
+
 {
   const now = Date.now();
   infoStore.BTC.push({ t: now, v: 0 });
@@ -99,6 +103,26 @@ function computeSignals() {
     // info volume last minute
     const infoCount = count1m(is);
 
+    // Calculate energy context for this signal
+    let energyContext = null;
+    if (energyData && energyData[sym] && lastPrice) {
+      const energyPerTx = energyData[sym].perTransaction;
+      // Estimate hourly transaction volume based on network activity
+      const estimatedHourlyTx = sym === "BTC" ? 21600 : 10800; // Rough estimates
+      const hourlyEnergyKWh = energyPerTx?.electricalEnergyKWh 
+        ? (energyPerTx.electricalEnergyKWh * estimatedHourlyTx)
+        : null;
+      
+      energyContext = {
+        energyPerTxKWh: energyPerTx?.electricalEnergyKWh || null,
+        carbonPerTxKg: energyPerTx?.carbonFootprintKgCO2 || null,
+        estimatedHourlyTx,
+        hourlyEnergyKWh: hourlyEnergyKWh ? Number(hourlyEnergyKWh.toFixed(2)) : null,
+        annualizedEnergyTWh: energyData[sym].annualized?.electricalEnergyTWh || null,
+        annualizedCarbonMt: energyData[sym].annualized?.carbonFootprintMtCO2 || null,
+      };
+    }
+
     // Cache current signal
     signalCache[sym] = {
       symbol: sym,
@@ -115,6 +139,7 @@ function computeSignals() {
       strong: Math.abs(divergence) >= 1.5 && infoCount >= 3,
       updatedAt: new Date().toISOString(),
       counts: { price: ps.length, info: is.length },
+      ...(energyContext && { energy: energyContext }),
     };
 
     // ---------- Impact detection (zSent spike) ----------
@@ -131,14 +156,39 @@ function computeSignals() {
             const p1 = priceStore[sym].at(-1)?.v || p0;
             const retPct = ((p1 - p0) / p0) * 100;
 
+            // Calculate energy-related metrics for this impact
+            let energyMetrics = null;
+            if (energyData && energyData[sym]) {
+              const energyPerTx = energyData[sym].perTransaction;
+              // Estimate transactions in the 60s window (roughly 6 blocks for BTC)
+              const estimatedTxInWindow = sym === "BTC" ? 600 : 180; // BTC ~10 tx/sec avg, ETH ~3 tx/sec
+              const energyCostKWh = energyPerTx?.electricalEnergyKWh 
+                ? (energyPerTx.electricalEnergyKWh * estimatedTxInWindow) 
+                : null;
+              const carbonCostKg = energyPerTx?.carbonFootprintKgCO2
+                ? (energyPerTx.carbonFootprintKgCO2 * estimatedTxInWindow)
+                : null;
+
+              energyMetrics = {
+                energyPerTxKWh: energyPerTx?.electricalEnergyKWh || null,
+                estimatedTxInWindow,
+                totalEnergyCostKWh: energyCostKWh ? Number(energyCostKWh.toFixed(2)) : null,
+                totalCarbonCostKg: carbonCostKg ? Number(carbonCostKg.toFixed(2)) : null,
+              };
+            }
+
             impacts.push({
               sym,
               t: now,
               zSentAtSpike: zAt,
               retPct60s: Number(retPct.toFixed(3)),
+              priceAtSpike: p0,
+              priceAfter60s: p1,
+              ...(energyMetrics && { energy: energyMetrics }),
             });
             if (impacts.length > 100) impacts.shift();
-            console.log("[impact]", sym, "z:", zAt, "ret60s:", retPct.toFixed(3) + "%");
+            console.log("[impact]", sym, "z:", zAt, "ret60s:", retPct.toFixed(3) + "%", 
+              energyMetrics ? `energy: ${energyMetrics.totalEnergyCostKWh}kWh` : "");
           }, IMPACT_WINDOW_MS);
         }
       }
@@ -231,19 +281,109 @@ async function pollNews() {
   }
 }
 
+/* ------------------------ Digiconomist Energy Data ------------------------ */
+async function fetchEnergyData() {
+  const now = Date.now();
+  // Only fetch if cache expired
+  if (energyData && (now - lastEnergyFetch) < ENERGY_CACHE_MS) {
+    return energyData;
+  }
+
+  try {
+    // Digiconomist API for Bitcoin
+    const btcResponse = await fetch("https://digiconomist.net/api/v1/bitcoin");
+    if (!btcResponse.ok) throw new Error(`Digiconomist API ${btcResponse.status}`);
+    const btcData = await btcResponse.json();
+
+    // Try to fetch Ethereum data if available
+    let ethData = null;
+    try {
+      const ethResponse = await fetch("https://digiconomist.net/api/v1/ethereum");
+      if (ethResponse.ok) {
+        ethData = await ethResponse.json();
+      }
+    } catch (e) {
+      console.log("[energy] Ethereum data not available");
+    }
+
+    // Parse and structure the data (handle different possible API response formats)
+    energyData = {
+      BTC: {
+        annualized: {
+          carbonFootprintMtCO2: btcData.carbon_footprint_mt_co2 || btcData.annualized_total_footprints?.carbon_footprint_mt_co2 || btcData.carbon_footprint || null,
+          electricalEnergyTWh: btcData.energy_consumption_twh || btcData.annualized_total_footprints?.electrical_energy_twh || btcData.electrical_energy || null,
+          electronicWasteKt: btcData.electronic_waste_kt || btcData.annualized_total_footprints?.electronic_waste_kt || btcData.electronic_waste || null,
+          freshWaterConsumptionGL: btcData.fresh_water_consumption_gl || btcData.annualized_total_footprints?.fresh_water_consumption_gl || btcData.fresh_water || null,
+        },
+        perTransaction: {
+          carbonFootprintKgCO2: btcData.single_transaction_footprints?.carbon_footprint_kg_co2 || btcData.per_transaction?.carbon_footprint_kg_co2 || null,
+          electricalEnergyKWh: btcData.single_transaction_footprints?.electrical_energy_kwh || btcData.per_transaction?.electrical_energy_kwh || btcData.energy_per_transaction_kwh || null,
+          electronicWasteGrams: btcData.single_transaction_footprints?.electronic_waste_grams || btcData.per_transaction?.electronic_waste_grams || null,
+          freshWaterConsumptionLiters: btcData.single_transaction_footprints?.fresh_water_consumption_liters || btcData.per_transaction?.fresh_water_consumption_liters || null,
+        },
+        updatedAt: btcData.date || new Date().toISOString(),
+      },
+      ...(ethData && {
+        ETH: {
+          annualized: {
+            carbonFootprintMtCO2: ethData.carbon_footprint_mt_co2 || ethData.annualized_total_footprints?.carbon_footprint_mt_co2 || null,
+            electricalEnergyTWh: ethData.energy_consumption_twh || ethData.annualized_total_footprints?.electrical_energy_twh || null,
+            electronicWasteKt: ethData.electronic_waste_kt || ethData.annualized_total_footprints?.electronic_waste_kt || null,
+            freshWaterConsumptionGL: ethData.fresh_water_consumption_gl || ethData.annualized_total_footprints?.fresh_water_consumption_gl || null,
+          },
+          perTransaction: {
+            carbonFootprintKgCO2: ethData.single_transaction_footprints?.carbon_footprint_kg_co2 || null,
+            electricalEnergyKWh: ethData.single_transaction_footprints?.electrical_energy_kwh || ethData.energy_per_transaction_kwh || null,
+            electronicWasteGrams: ethData.single_transaction_footprints?.electronic_waste_grams || null,
+            freshWaterConsumptionLiters: ethData.single_transaction_footprints?.fresh_water_consumption_liters || null,
+          },
+          updatedAt: ethData.date || new Date().toISOString(),
+        },
+      }),
+    };
+
+    lastEnergyFetch = now;
+    console.log("[energy] Fetched energy consumption data");
+    return energyData;
+  } catch (e) {
+    console.log("[energy] error", e.message);
+    return energyData; // Return cached data if fetch fails
+  }
+}
+
 /* ---------------------------- API ------------------------------ */
 setInterval(computeSignals, 1000);
 
 app.get("/health", (_req, res) => res.json({ ok: true }));
 
-app.get("/signals", (_req, res) => {
+app.get("/energy", async (_req, res) => {
+  try {
+    const data = await fetchEnergyData();
+    res.setHeader("Cache-Control", "public, max-age=3600"); // Cache for 1 hour
+    res.json(data);
+  } catch (err) {
+    console.error("energy route error:", err);
+    res.status(500).json({ error: "Failed to fetch energy data" });
+  }
+});
+
+app.get("/signals", async (_req, res) => {
   try {
     res.setHeader("Cache-Control", "no-store");
+    
+    // Always include energy data for linking
+    const energy = await fetchEnergyData();
+    
+    // Calculate analytics linking all three datasets
+    const analytics = calculateUnifiedAnalytics(energy);
+    
     res.json({
       windowSeconds: WINDOW_MS / 1000,
       symbols: SYMBOLS,
       data: SYMBOLS.map((s) => signalCache[s]).filter(Boolean),
       impacts: impacts.slice(-10), // last 10 impacts for UI/KPIs
+      energy, // Always include energy data
+      analytics, // Unified analytics
     });
   } catch (err) {
     console.error("signals route error:", err);
@@ -256,6 +396,61 @@ app.get("/signals", (_req, res) => {
     });
   }
 });
+
+/* --------------------- Unified Analytics --------------------- */
+function calculateUnifiedAnalytics(energy) {
+  if (!energy) return null;
+
+  const last10Impacts = impacts.slice(-10);
+  const btcImpacts = last10Impacts.filter((i) => i.sym === "BTC");
+  const ethImpacts = last10Impacts.filter((i) => i.sym === "ETH");
+
+  // Calculate total energy cost of recent impacts
+  let totalImpactEnergyKWh = 0;
+  let totalImpactCarbonKg = 0;
+  
+  last10Impacts.forEach((impact) => {
+    if (impact.energy) {
+      totalImpactEnergyKWh += impact.energy.totalEnergyCostKWh || 0;
+      totalImpactCarbonKg += impact.energy.totalCarbonCostKg || 0;
+    }
+  });
+
+  // Calculate correlation metrics
+  const avgPriceChange = last10Impacts.length > 0
+    ? last10Impacts.reduce((sum, i) => sum + Math.abs(i.retPct60s || 0), 0) / last10Impacts.length
+    : 0;
+
+  const avgSentimentSpike = last10Impacts.length > 0
+    ? last10Impacts.reduce((sum, i) => sum + Math.abs(i.zSentAtSpike || 0), 0) / last10Impacts.length
+    : 0;
+
+  return {
+    recentImpacts: {
+      count: last10Impacts.length,
+      btcCount: btcImpacts.length,
+      ethCount: ethImpacts.length,
+      totalEnergyCostKWh: Number(totalImpactEnergyKWh.toFixed(2)),
+      totalCarbonCostKg: Number(totalImpactCarbonKg.toFixed(2)),
+      avgPriceChange: Number(avgPriceChange.toFixed(3)),
+      avgSentimentSpike: Number(avgSentimentSpike.toFixed(2)),
+    },
+    networkMetrics: {
+      BTC: energy.BTC ? {
+        energyPerTxKWh: energy.BTC.perTransaction?.electricalEnergyKWh || null,
+        carbonPerTxKg: energy.BTC.perTransaction?.carbonFootprintKgCO2 || null,
+        annualEnergyTWh: energy.BTC.annualized?.electricalEnergyTWh || null,
+        annualCarbonMt: energy.BTC.annualized?.carbonFootprintMtCO2 || null,
+      } : null,
+      ETH: energy.ETH ? {
+        energyPerTxKWh: energy.ETH.perTransaction?.electricalEnergyKWh || null,
+        carbonPerTxKg: energy.ETH.perTransaction?.carbonFootprintKgCO2 || null,
+        annualEnergyTWh: energy.ETH.annualized?.electricalEnergyTWh || null,
+        annualCarbonMt: energy.ETH.annualized?.carbonFootprintMtCO2 || null,
+      } : null,
+    },
+  };
+}
 
 /* --------------------------- Start ----------------------------- */
 const PORT = process.env.PORT || 4000;
