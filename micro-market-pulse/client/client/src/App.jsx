@@ -19,6 +19,10 @@ export default function App() {
   const prevRowsRef = useRef(null);
   const prevImpactCountRef = useRef(0);
 
+  // Energy consumption data state and analytics
+  const [energyData, setEnergyData] = useState(null);
+  const [analytics, setAnalytics] = useState(null);
+
   // ---------- audio ----------
   const toggleAudio = () => {
     if (!audioCtxRef.current) {
@@ -41,9 +45,15 @@ export default function App() {
 
         const data = Array.isArray(json.data) ? json.data : [];
         const newImpacts = Array.isArray(json.impacts) ? json.impacts : [];
+        const newEnergyData = json.energy || null;
+        const newAnalytics = json.analytics || null;
 
         // rows
         setRows(data);
+
+        // Update energy data and analytics if available
+        if (newEnergyData) setEnergyData(newEnergyData);
+        if (newAnalytics) setAnalytics(newAnalytics);
 
         // history + optional audio ping for “strong”
         const h = historyRef.current;
@@ -178,10 +188,13 @@ export default function App() {
                       div < -0.15 ? "mild negative divergence" :
                       "balanced";
       const infoVol = r.infoCount1m ?? 0;
+      const energyInfo = r.energy?.energyPerTxKWh 
+        ? ` Energy: ${fmt(r.energy.energyPerTxKWh, 2)} kWh/tx`
+        : "";
 
       lines.push(
         `${r.symbol}: ${price} (${pct} last minute). Divergence ${fmt(div, 2)} → ${divTone}; ` +
-        `info volume ${infoVol} in the last minute.`
+        `info volume ${infoVol} in the last minute.${energyInfo}`
       );
     }
 
@@ -189,9 +202,12 @@ export default function App() {
     const last = curImpacts.at(-1);
     if (last) {
       const direction = last.retPct60s > 0 ? "positive" : last.retPct60s < 0 ? "negative" : "flat";
+      const energyImpact = last.energy?.totalEnergyCostKWh
+        ? ` Energy cost: ${fmt(last.energy.totalEnergyCostKWh, 2)} kWh`
+        : "";
       lines.push(
         `Impact detected: ${last.sym} zSent spike ${fmt(last.zSentAtSpike, 2)}; ` +
-        `subsequent 60s return ${fmt(last.retPct60s, 3)}% (${direction}).`
+        `subsequent 60s return ${fmt(last.retPct60s, 3)}% (${direction}).${energyImpact}`
       );
     }
 
@@ -200,7 +216,9 @@ export default function App() {
     if (l10.length > 0) {
       const bulls = l10.filter((i) => (i.retPct60s || 0) > 0).length;
       const bears = l10.filter((i) => (i.retPct60s || 0) < 0).length;
-      lines.push(`Recent impact score (last 10): Bulls ${bulls} vs Bears ${bears}.`);
+      const totalEnergy = l10.reduce((sum, i) => sum + (i.energy?.totalEnergyCostKWh || 0), 0);
+      const energyNote = totalEnergy > 0 ? ` Total energy cost: ${fmt(totalEnergy, 2)} kWh` : "";
+      lines.push(`Recent impact score (last 10): Bulls ${bulls} vs Bears ${bears}.${energyNote}`);
     }
 
     return lines.join(" ");
@@ -281,6 +299,7 @@ export default function App() {
                 <th style={th}>Divergence</th>
                 <th style={th}>Pred 1m</th>
                 <th style={th}>Info Vol (1m)</th>
+                <th style={th}>Energy/Tx</th>
                 <th style={th}>Price Age</th>
                 <th style={th}>Info Age</th>
                 <th style={th}>Updated</th>
@@ -311,6 +330,11 @@ export default function App() {
                         : "–"}
                     </td>
                     <td style={td}>{r.infoCount1m ?? 0}</td>
+                    <td style={td}>
+                      {r.energy?.energyPerTxKWh
+                        ? `${r.energy.energyPerTxKWh.toFixed(2)} kWh`
+                        : "–"}
+                    </td>
                     <td style={td}>{age(r.lastPriceTs)}</td>
                     <td style={td}>{age(r.lastInfoTs)}</td>
                     <td style={td}>{new Date(r.updatedAt).toLocaleTimeString()}</td>
@@ -322,8 +346,9 @@ export default function App() {
         </div>
       </div>
 
-      {/* Chart */}
-      <div style={{ padding: 20 }}>
+      {/* Charts */}
+      <div style={{ padding: 20, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+        {/* Divergence Chart */}
         <div style={{ border: "1px solid #1f2937", borderRadius: 10, background: "#0e1726" }}>
           <Plot
             data={[
@@ -333,6 +358,7 @@ export default function App() {
                 type: "scatter",
                 mode: "lines",
                 name: `${selected} Divergence`,
+                line: { color: "#60a5fa" },
               },
               {
                 x: impactXs,
@@ -341,7 +367,7 @@ export default function App() {
                 mode: "markers+text",
                 text: impactTexts,
                 textposition: "top center",
-                marker: { size: 8 },
+                marker: { size: 10, color: "#fbbf24" },
                 name: "Impacts",
               },
             ]}
@@ -357,7 +383,83 @@ export default function App() {
             style={{ width: "100%", height: "100%" }}
           />
         </div>
+
+        {/* Price & Energy Correlation Chart */}
+        {rows.length > 0 && energyData && (
+          <div style={{ border: "1px solid #1f2937", borderRadius: 10, background: "#0e1726" }}>
+            <Plot
+              data={rows
+                .filter((r) => r.symbol === selected && r.energy?.energyPerTxKWh)
+                .map((r) => ({
+                  x: [r.lastPrice],
+                  y: [r.energy.energyPerTxKWh],
+                  type: "scatter",
+                  mode: "markers",
+                  name: r.symbol,
+                  marker: { size: 12, color: "#10b981" },
+                }))}
+              layout={{
+                title: `${selected} Price vs Energy per Transaction`,
+                xaxis: { title: "Price (USD)", color: "#e5e7eb" },
+                yaxis: { title: "Energy (kWh/tx)", color: "#e5e7eb" },
+                paper_bgcolor: "#0e1726",
+                plot_bgcolor: "#0e1726",
+                font: { color: "#e5e7eb" },
+                height: 320,
+                margin: { l: 60, r: 16, t: 48, b: 60 },
+              }}
+              useResizeHandler
+              style={{ width: "100%", height: "100%" }}
+            />
+          </div>
+        )}
       </div>
+
+      {/* Analytics Dashboard */}
+      {analytics && (
+        <div style={{ padding: "0 20px 12px 20px" }}>
+          <div style={{ border: "1px solid #1f2937", borderRadius: 10, background: "#0e1726" }}>
+            <div
+              style={{
+                padding: "12px 14px",
+                borderBottom: "1px solid #1f2937",
+                fontWeight: 700,
+                color: "#cbd5e1",
+              }}
+            >
+              Unified Analytics (Price + Sentiment + Energy)
+            </div>
+            <div style={{ padding: "12px 14px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
+                <div>
+                  <div style={{ color: "#94a3b8", fontSize: 12, marginBottom: 4 }}>Recent Impacts</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: "#e5e7eb" }}>
+                    {analytics.recentImpacts?.count || 0}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ color: "#94a3b8", fontSize: 12, marginBottom: 4 }}>Total Energy Cost</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: "#fbbf24" }}>
+                    {analytics.recentImpacts?.totalEnergyCostKWh || 0} kWh
+                  </div>
+                </div>
+                <div>
+                  <div style={{ color: "#94a3b8", fontSize: 12, marginBottom: 4 }}>Total Carbon Cost</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: "#ef4444" }}>
+                    {analytics.recentImpacts?.totalCarbonCostKg || 0} kg
+                  </div>
+                </div>
+                <div>
+                  <div style={{ color: "#94a3b8", fontSize: 12, marginBottom: 4 }}>Avg Price Change</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: "#e5e7eb" }}>
+                    {fmt(analytics.recentImpacts?.avgPriceChange || 0, 3)}%
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Impact Feed */}
       <div style={{ padding: "0 20px 12px 20px" }}>
@@ -397,12 +499,168 @@ export default function App() {
                     >
                       60s return: {(ev.retPct60s > 0 ? "+" : "") + ev.retPct60s}%
                     </span>
+                    {ev.energy?.totalEnergyCostKWh && (
+                      <>
+                        {" · "}
+                        <span style={{ color: "#fbbf24" }}>
+                          Energy: {ev.energy.totalEnergyCostKWh.toFixed(2)} kWh
+                        </span>
+                      </>
+                    )}
+                    {ev.energy?.totalCarbonCostKg && (
+                      <>
+                        {" · "}
+                        <span style={{ color: "#94a3b8", fontSize: 12 }}>
+                          CO₂: {ev.energy.totalCarbonCostKg.toFixed(2)} kg
+                        </span>
+                      </>
+                    )}
                   </li>
                 ))}
             </ul>
           )}
         </div>
       </div>
+
+      {/* Energy Consumption Section */}
+      {energyData && energyData.BTC && (
+        <div style={{ padding: "0 20px 24px 20px" }}>
+          <div style={{ border: "1px solid #1f2937", borderRadius: 10, background: "#0e1726" }}>
+            <div
+              style={{
+                padding: "12px 14px",
+                borderBottom: "1px solid #1f2937",
+                fontWeight: 700,
+                color: "#cbd5e1",
+              }}
+            >
+              Bitcoin Energy Consumption{" "}
+              <span style={{ fontSize: 12, fontWeight: 400, color: "#94a3b8" }}>
+                (Source:{" "}
+                <a
+                  href="https://digiconomist.net/bitcoin-energy-consumption"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: "#60a5fa" }}
+                >
+                  Digiconomist
+                </a>
+                )
+              </span>
+            </div>
+            <div style={{ padding: "12px 14px" }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(2, 1fr)",
+                  gap: 16,
+                  marginBottom: 16,
+                }}
+              >
+                <div>
+                  <h3 style={{ margin: "0 0 8px 0", fontSize: 14, color: "#94a3b8" }}>
+                    Annualized Footprints
+                  </h3>
+                  <div style={{ fontSize: 13, color: "#e5e7eb", lineHeight: 1.8 }}>
+                    <div>
+                      🌍 Carbon:{" "}
+                      <strong>
+                        {energyData.BTC.annualized?.carbonFootprintMtCO2
+                          ? energyData.BTC.annualized.carbonFootprintMtCO2.toFixed(2)
+                          : "N/A"}{" "}
+                        Mt CO₂
+                      </strong>
+                    </div>
+                    <div>
+                      ⚡ Energy:{" "}
+                      <strong>
+                        {energyData.BTC.annualized?.electricalEnergyTWh
+                          ? energyData.BTC.annualized.electricalEnergyTWh.toFixed(2)
+                          : "N/A"}{" "}
+                        TWh
+                      </strong>
+                    </div>
+                    <div>
+                      🗑️ E-Waste:{" "}
+                      <strong>
+                        {energyData.BTC.annualized?.electronicWasteKt
+                          ? energyData.BTC.annualized.electronicWasteKt.toFixed(2)
+                          : "N/A"}{" "}
+                        kt
+                      </strong>
+                    </div>
+                    <div>
+                      💧 Water:{" "}
+                      <strong>
+                        {energyData.BTC.annualized?.freshWaterConsumptionGL
+                          ? energyData.BTC.annualized.freshWaterConsumptionGL.toFixed(0)
+                          : "N/A"}{" "}
+                        GL
+                      </strong>
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <h3 style={{ margin: "0 0 8px 0", fontSize: 14, color: "#94a3b8" }}>
+                    Per Transaction
+                  </h3>
+                  <div style={{ fontSize: 13, color: "#e5e7eb", lineHeight: 1.8 }}>
+                    <div>
+                      🌍 Carbon:{" "}
+                      <strong>
+                        {energyData.BTC.perTransaction?.carbonFootprintKgCO2
+                          ? energyData.BTC.perTransaction.carbonFootprintKgCO2.toFixed(2)
+                          : "N/A"}{" "}
+                        kg CO₂
+                      </strong>
+                    </div>
+                    <div>
+                      ⚡ Energy:{" "}
+                      <strong>
+                        {energyData.BTC.perTransaction?.electricalEnergyKWh
+                          ? energyData.BTC.perTransaction.electricalEnergyKWh.toFixed(2)
+                          : "N/A"}{" "}
+                        kWh
+                      </strong>
+                    </div>
+                    <div>
+                      🗑️ E-Waste:{" "}
+                      <strong>
+                        {energyData.BTC.perTransaction?.electronicWasteGrams
+                          ? energyData.BTC.perTransaction.electronicWasteGrams.toFixed(2)
+                          : "N/A"}{" "}
+                        g
+                      </strong>
+                    </div>
+                    <div>
+                      💧 Water:{" "}
+                      <strong>
+                        {energyData.BTC.perTransaction?.freshWaterConsumptionLiters
+                          ? energyData.BTC.perTransaction.freshWaterConsumptionLiters.toFixed(0)
+                          : "N/A"}{" "}
+                        L
+                      </strong>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div
+                style={{
+                  fontSize: 11,
+                  color: "#94a3b8",
+                  borderTop: "1px solid #1f2937",
+                  paddingTop: 8,
+                }}
+              >
+                Updated:{" "}
+                {energyData.BTC.updatedAt
+                  ? new Date(energyData.BTC.updatedAt).toLocaleString()
+                  : "N/A"}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Auto Summary */}
       <div style={{ padding: "0 20px 24px 20px" }}>
