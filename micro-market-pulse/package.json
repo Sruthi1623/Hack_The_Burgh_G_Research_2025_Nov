@@ -1,0 +1,9 @@
+{
+  "name": "micro-market-pulse",
+  "private": true,
+  "scripts": {
+    "dev:server": "node server/index.js",
+    "dev:client": "npm --prefix client/client run dev",
+    "dev": "concurrently \"npm:dev:server\" \"npm:dev:client\""
+  }
+}

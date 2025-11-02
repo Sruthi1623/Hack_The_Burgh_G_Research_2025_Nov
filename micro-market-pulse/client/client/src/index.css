@@ -1,0 +1,23 @@
+/* Full-bleed layout + sane defaults */
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+* { box-sizing: border-box; }
+
+/* Optional dark base (matches your app) */
+body {
+  background: #111827;
+  color: #e5e7eb;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+}
+
+/* Remove Vite template constraints if present */
+#root {
+  max-width: none;   /* kills the 1280px cap */
+  padding: 0;        /* remove default padding */
+  margin: 0;         /* remove centering */
+}
