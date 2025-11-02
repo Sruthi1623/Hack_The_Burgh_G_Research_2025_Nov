@@ -1,0 +1,32 @@
+{
+  "BTC": {
+    "annualized": {
+      "carbonFootprintMtCO2": 0.356,
+      "electricalEnergyTWh": 132.5,
+      "electronicWasteKt": 3.4,
+      "freshWaterConsumptionGL": 1.2
+    },
+    "perTransaction": {
+      "carbonFootprintKgCO2": 0.00059,
+      "electricalEnergyKWh": 1062.57,
+      "electronicWasteGrams": 0.12,
+      "freshWaterConsumptionLiters": 0.05
+    },
+    "updatedAt": "2025-11-01T00:00:00Z"
+  },
+  "ETH": {
+    "annualized": {
+      "carbonFootprintMtCO2": 0.162,
+      "electricalEnergyTWh": 55.1,
+      "electronicWasteKt": 1.6,
+      "freshWaterConsumptionGL": 0.6
+    },
+    "perTransaction": {
+      "carbonFootprintKgCO2": 0.0009,
+      "electricalEnergyKWh": 324,
+      "electronicWasteGrams": 0.03,
+      "freshWaterConsumptionLiters": 0.02
+    },
+    "updatedAt": "2025-11-01T00:00:00Z"
+  }
+}

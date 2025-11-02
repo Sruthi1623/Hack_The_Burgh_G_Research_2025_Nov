@@ -4,6 +4,7 @@ import { EventSource } from "eventsource";
 import WebSocket from "ws";
 import vader from "vader-sentiment";
 import fetch from "node-fetch";
+import fs from "fs";
 
 // --- Flags / env ---
 const REPLAY = process.env.DEMO_REPLAY === "1";
@@ -396,8 +397,21 @@ async function fetchEnergyData() {
     console.log("[energy] Fetched energy consumption data");
     return energyData;
   } catch (e) {
-    console.log("[energy] error", e.message);
-    return energyData; // Return cached data if fetch fails
+      console.log("[energy] error", e.message);
+
+      // Attempt to use a local fallback sample included with the server
+      try {
+        const samplePath = new URL("./energy-sample.json", import.meta.url);
+        const sampleRaw = fs.readFileSync(samplePath, "utf8");
+        const sample = JSON.parse(sampleRaw);
+        energyData = sample;
+        lastEnergyFetch = now;
+        console.log("[energy] Using local sample fallback for energy data");
+        return energyData;
+      } catch (fsErr) {
+        console.log("[energy] fallback sample not available:", fsErr.message);
+        return energyData; // Return cached data if present, otherwise null
+      }
   }
 }
 
