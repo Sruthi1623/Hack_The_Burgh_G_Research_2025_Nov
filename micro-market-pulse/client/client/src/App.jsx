@@ -429,108 +429,143 @@ export default function App() {
         )}
       </div>
 
-      {/* Enhanced Analytics Dashboard */}
-      {analytics && (
-        <div style={{ padding: "0 20px 12px 20px" }}>
-          <div style={{ border: "1px solid #1f2937", borderRadius: 10, background: "#0e1726", overflow: "hidden" }}>
-            <div
-              style={{
-                padding: "16px 20px",
-                borderBottom: "1px solid #1f2937",
-                fontWeight: 700,
-                color: "#cbd5e1",
-                fontSize: 16,
-                background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
-              }}
-            >
-              📊 Unified Analytics Dashboard
-              <span style={{ fontSize: 12, fontWeight: 400, color: "#94a3b8", marginLeft: 8 }}>
-                (Price + Sentiment + Energy Integration)
-              </span>
-            </div>
-            
-            {/* Impact Analytics */}
-            <div style={{ padding: "20px" }}>
-              <h3 style={{ margin: "0 0 16px 0", fontSize: 14, fontWeight: 600, color: "#cbd5e1" }}>
-                Recent Impact Metrics
-              </h3>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginBottom: 24 }}>
-                <MetricCard
-                  label="Total Impacts"
-                  value={analytics.recentImpacts?.count || 0}
-                  subValue={`BTC: ${analytics.recentImpacts?.btcCount || 0} | ETH: ${analytics.recentImpacts?.ethCount || 0}`}
-                  color="#60a5fa"
-                />
-                <MetricCard
-                  label="Total Energy Cost"
-                  value={analytics.recentImpacts?.totalEnergyCostKWh ? `${analytics.recentImpacts.totalEnergyCostKWh.toFixed(2)} kWh` : "N/A"}
-                  subValue="From last 10 impacts"
-                  color="#fbbf24"
-                />
-                <MetricCard
-                  label="Total Carbon Cost"
-                  value={analytics.recentImpacts?.totalCarbonCostKg ? `${analytics.recentImpacts.totalCarbonCostKg.toFixed(2)} kg CO₂` : "N/A"}
-                  subValue="From last 10 impacts"
-                  color="#ef4444"
-                />
-                <MetricCard
-                  label="Avg Price Change"
-                  value={`${fmt(analytics.recentImpacts?.avgPriceChange || 0, 3)}%`}
-                  subValue="Per impact event"
-                  color="#10b981"
-                />
-                <MetricCard
-                  label="Avg Sentiment Spike"
-                  value={fmt(analytics.recentImpacts?.avgSentimentSpike || 0, 2)}
-                  subValue="Z-score magnitude"
-                  color="#a78bfa"
-                />
-              </div>
-
-              {/* Network Energy Metrics */}
-              {analytics.networkMetrics && (
-                <div style={{ marginTop: 24 }}>
-                  <h3 style={{ margin: "0 0 16px 0", fontSize: 14, fontWeight: 600, color: "#cbd5e1" }}>
-                    Network Energy Metrics
-                  </h3>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: 16 }}>
-                    {analytics.networkMetrics.BTC && (
-                      <NetworkMetricCard
-                        symbol="BTC"
-                        data={analytics.networkMetrics.BTC}
-                        color="#f59e0b"
-                      />
-                    )}
-                    {analytics.networkMetrics.ETH && (
-                      <NetworkMetricCard
-                        symbol="ETH"
-                        data={analytics.networkMetrics.ETH}
-                        color="#8b5cf6"
-                      />
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
+      {/* Enhanced Analytics Dashboard - Always Visible */}
+      <div style={{ padding: "0 20px 12px 20px" }}>
+        <div style={{ border: "1px solid #1f2937", borderRadius: 10, background: "#0e1726", overflow: "hidden" }}>
+          <div
+            style={{
+              padding: "16px 20px",
+              borderBottom: "1px solid #1f2937",
+              fontWeight: 700,
+              color: "#cbd5e1",
+              fontSize: 16,
+              background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
+            }}
+          >
+            📊 Unified Analytics Dashboard
+            <span style={{ fontSize: 12, fontWeight: 400, color: "#94a3b8", marginLeft: 8 }}>
+              (Price + Sentiment + Energy Integration)
+            </span>
           </div>
-        </div>
-      )}
-
-      {/* Correlation Analytics Charts */}
-      {analytics && impacts.length > 0 && (
-        <div style={{ padding: "0 20px 12px 20px" }}>
-          <div style={{ border: "1px solid #1f2937", borderRadius: 10, background: "#0e1726", overflow: "hidden" }}>
-            <div
-              style={{
-                padding: "16px 20px",
-                borderBottom: "1px solid #1f2937",
-                fontWeight: 700,
-                color: "#cbd5e1",
-                fontSize: 16,
-              }}
-            >
-              📈 Correlation Analytics
+          
+          {!analytics || !analytics.recentImpacts || analytics.recentImpacts.count === 0 ? (
+            <div style={{ padding: "40px 20px", textAlign: "center" }}>
+              <div style={{ fontSize: 48, marginBottom: 16 }}>📊</div>
+              <div style={{ fontSize: 18, fontWeight: 600, color: "#cbd5e1", marginBottom: 8 }}>
+                Analytics Will Appear Here
+              </div>
+              <div style={{ fontSize: 14, color: "#94a3b8", lineHeight: 1.6, maxWidth: 600, margin: "0 auto" }}>
+                <strong style={{ color: "#fbbf24" }}>No recent impacts detected yet.</strong>
+                <br />
+                Analytics will populate once sentiment spikes trigger price movements.
+                <br />
+                The dashboard will show energy costs, carbon emissions, and correlation metrics when impacts occur.
+              </div>
             </div>
+          ) : (
+            <>
+              {/* Impact Analytics */}
+              <div style={{ padding: "20px" }}>
+                <h3 style={{ margin: "0 0 16px 0", fontSize: 14, fontWeight: 600, color: "#cbd5e1" }}>
+                  Recent Impact Metrics
+                </h3>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginBottom: 24 }}>
+                  <MetricCard
+                    label="Total Impacts"
+                    value={analytics.recentImpacts?.count || 0}
+                    subValue={`BTC: ${analytics.recentImpacts?.btcCount || 0} | ETH: ${analytics.recentImpacts?.ethCount || 0}`}
+                    color="#60a5fa"
+                  />
+                  <MetricCard
+                    label="Total Energy Cost"
+                    value={analytics.recentImpacts?.totalEnergyCostKWh ? `${analytics.recentImpacts.totalEnergyCostKWh.toFixed(2)} kWh` : "0.00 kWh"}
+                    subValue="From last 10 impacts"
+                    color="#fbbf24"
+                  />
+                  <MetricCard
+                    label="Total Carbon Cost"
+                    value={analytics.recentImpacts?.totalCarbonCostKg ? `${analytics.recentImpacts.totalCarbonCostKg.toFixed(2)} kg CO₂` : "0.00 kg"}
+                    subValue="From last 10 impacts"
+                    color="#ef4444"
+                  />
+                  <MetricCard
+                    label="Avg Price Change"
+                    value={`${fmt(analytics.recentImpacts?.avgPriceChange || 0, 3)}%`}
+                    subValue="Per impact event"
+                    color="#10b981"
+                  />
+                  <MetricCard
+                    label="Avg Sentiment Spike"
+                    value={fmt(analytics.recentImpacts?.avgSentimentSpike || 0, 2)}
+                    subValue="Z-score magnitude"
+                    color="#a78bfa"
+                  />
+                </div>
+
+                {/* Network Energy Metrics */}
+                {analytics.networkMetrics && (
+                  <div style={{ marginTop: 24 }}>
+                    <h3 style={{ margin: "0 0 16px 0", fontSize: 14, fontWeight: 600, color: "#cbd5e1" }}>
+                      Network Energy Metrics
+                    </h3>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: 16 }}>
+                      {analytics.networkMetrics.BTC && (
+                        <NetworkMetricCard
+                          symbol="BTC"
+                          data={analytics.networkMetrics.BTC}
+                          color="#f59e0b"
+                        />
+                      )}
+                      {analytics.networkMetrics.ETH && (
+                        <NetworkMetricCard
+                          symbol="ETH"
+                          data={analytics.networkMetrics.ETH}
+                          color="#8b5cf6"
+                        />
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Correlation Analytics Charts - Always Visible */}
+      <div style={{ padding: "0 20px 12px 20px" }}>
+        <div style={{ border: "1px solid #1f2937", borderRadius: 10, background: "#0e1726", overflow: "hidden" }}>
+          <div
+            style={{
+              padding: "16px 20px",
+              borderBottom: "1px solid #1f2937",
+              fontWeight: 700,
+              color: "#cbd5e1",
+              fontSize: 16,
+            }}
+          >
+            📈 Correlation Analytics
+            <span style={{ fontSize: 12, fontWeight: 400, color: "#94a3b8", marginLeft: 8 }}>
+              (Sentiment Spike vs Price Impact vs Energy Cost)
+            </span>
+          </div>
+          {!analytics || !impacts || impacts.length === 0 ? (
+            <div style={{ padding: "60px 20px", textAlign: "center", minHeight: 400 }}>
+              <div style={{ fontSize: 64, marginBottom: 20, opacity: 0.5 }}>📈</div>
+              <div style={{ fontSize: 18, fontWeight: 600, color: "#cbd5e1", marginBottom: 12 }}>
+                No Correlation Data Available
+              </div>
+              <div style={{ fontSize: 14, color: "#94a3b8", lineHeight: 1.6, maxWidth: 500, margin: "0 auto" }}>
+                <strong style={{ color: "#fbbf24" }}>Waiting for impact events...</strong>
+                <br />
+                This chart will display when sentiment spikes trigger price movements.
+                <br />
+                <span style={{ fontSize: 12, color: "#64748b", marginTop: 8, display: "block" }}>
+                  Bubble size represents energy cost | Colors indicate price direction (green = up, red = down)
+                </span>
+              </div>
+            </div>
+          ) : (
             <div style={{ padding: "20px" }}>
               <Plot
                 data={[
@@ -575,25 +610,44 @@ export default function App() {
                 style={{ width: "100%", height: "100%" }}
               />
             </div>
-          </div>
+          )}
         </div>
-      )}
+      </div>
 
-      {/* Energy Impact Timeline Chart */}
-      {impacts.length > 0 && impacts.some((i) => i.energy) && (
-        <div style={{ padding: "0 20px 12px 20px" }}>
-          <div style={{ border: "1px solid #1f2937", borderRadius: 10, background: "#0e1726", overflow: "hidden" }}>
-            <div
-              style={{
-                padding: "16px 20px",
-                borderBottom: "1px solid #1f2937",
-                fontWeight: 700,
-                color: "#cbd5e1",
-                fontSize: 16,
-              }}
-            >
-              ⚡ Energy Impact Timeline
+      {/* Energy Impact Timeline Chart - Always Visible */}
+      <div style={{ padding: "0 20px 12px 20px" }}>
+        <div style={{ border: "1px solid #1f2937", borderRadius: 10, background: "#0e1726", overflow: "hidden" }}>
+          <div
+            style={{
+              padding: "16px 20px",
+              borderBottom: "1px solid #1f2937",
+              fontWeight: 700,
+              color: "#cbd5e1",
+              fontSize: 16,
+            }}
+          >
+            ⚡ Energy Impact Timeline
+            <span style={{ fontSize: 12, fontWeight: 400, color: "#94a3b8", marginLeft: 8 }}>
+              (Energy & Carbon Costs Over Time)
+            </span>
+          </div>
+          {!impacts || impacts.length === 0 || !impacts.some((i) => i.energy) ? (
+            <div style={{ padding: "60px 20px", textAlign: "center", minHeight: 350 }}>
+              <div style={{ fontSize: 64, marginBottom: 20, opacity: 0.5 }}>⚡</div>
+              <div style={{ fontSize: 18, fontWeight: 600, color: "#cbd5e1", marginBottom: 12 }}>
+                No Energy Impact Data
+              </div>
+              <div style={{ fontSize: 14, color: "#94a3b8", lineHeight: 1.6, maxWidth: 500, margin: "0 auto" }}>
+                <strong style={{ color: "#fbbf24" }}>Waiting for impact events with energy data...</strong>
+                <br />
+                This timeline will show energy costs (kWh) and carbon emissions (kg) for each detected impact.
+                <br />
+                <span style={{ fontSize: 12, color: "#64748b", marginTop: 8, display: "block" }}>
+                  Yellow line = Energy Cost | Red dashed line = Carbon Cost (×10 scale)
+                </span>
+              </div>
             </div>
+          ) : (
             <div style={{ padding: "20px" }}>
               <Plot
                 data={[
@@ -652,9 +706,9 @@ export default function App() {
                 style={{ width: "100%", height: "100%" }}
               />
             </div>
-          </div>
+          )}
         </div>
-      )}
+      </div>
 
       {/* Impact Feed */}
       <div style={{ padding: "0 20px 12px 20px" }}>
@@ -672,7 +726,19 @@ export default function App() {
         </div>
         <div style={{ border: "1px solid #1f2937", borderTop: "none", borderRadius: "0 0 10px 10px", background: "#0e1726", padding: "12px 14px" }}>
           {impacts.length === 0 ? (
-            <div style={{ color: "#94a3b8" }}>No impacts observed yet.</div>
+            <div style={{ textAlign: "center", padding: "20px" }}>
+              <div style={{ fontSize: 32, marginBottom: 12, opacity: 0.6 }}>📉</div>
+              <div style={{ color: "#cbd5e1", fontWeight: 600, marginBottom: 8 }}>
+                No Recent Impacts Detected
+              </div>
+              <div style={{ color: "#94a3b8", fontSize: 13, lineHeight: 1.6 }}>
+                Impacts occur when sentiment spikes (z-score ≥ 1.2) trigger measurable price movements within 60 seconds.
+                <br />
+                <span style={{ fontSize: 12, color: "#64748b", marginTop: 4, display: "block" }}>
+                  Waiting for sentiment events from Wikimedia/NewsAPI to trigger impact detection...
+                </span>
+              </div>
+            </div>
           ) : (
             <ul style={{ margin: 0, paddingLeft: 18 }}>
               {impacts
