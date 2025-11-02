@@ -482,3 +482,106 @@ if (REPLAY) {
     }
   }, 1000);
 }
+
+/* --------------------------- Analytics (ADD-ONLY) --------------------------- */
+// Window used for KPI summaries (override via ?windowMin= on /analytics)
+const ANALYTICS_DEFAULT_WINDOW_MS = 60 * 60_000; // 60 minutes
+
+// Keep only items within a lookback window
+function _sliceWindow(arr, ms) {
+  const cutoff = Date.now() - ms;
+  return arr.filter((x) => x.t >= cutoff);
+}
+
+// Summarize impact events (info spike -> 60s return) for KPIs
+function summarizeImpacts(windowMs = ANALYTICS_DEFAULT_WINDOW_MS) {
+  const items = _sliceWindow(impacts, windowMs);
+
+  const bySym = {};
+  for (const s of SYMBOLS) bySym[s] = [];
+  for (const ev of items) bySym[ev.sym].push(ev);
+
+  function stats(xs) {
+    const n = xs.length;
+    if (!n) return { n: 0, winRate: null, avgRet: null, avgAbs: null, p95: null };
+    const rets = xs.map((i) => i.retPct60s);
+    const win = rets.filter((r) => r > 0).length;
+    const avg = rets.reduce((a, b) => a + b, 0) / n;
+    const avgAbs = rets.reduce((a, b) => a + Math.abs(b), 0) / n;
+    const sorted = rets.slice().sort((a, b) => a - b);
+    const p95 = sorted[Math.max(0, Math.floor(0.95 * (sorted.length - 1)))];
+    return {
+      n,
+      winRate: Number((win / n).toFixed(2)),
+      avgRet: Number(avg.toFixed(3)),
+      avgAbs: Number(avgAbs.toFixed(3)),
+      p95: Number((p95 ?? 0).toFixed(3)),
+    };
+  }
+
+  const total = stats(items);
+  const perSym = Object.fromEntries(SYMBOLS.map((s) => [s, stats(bySym[s])]));
+
+  return {
+    windowMinutes: Math.round(windowMs / 60000),
+    total,
+    perSym,
+    lastEvents: items.slice(-10),
+  };
+}
+
+// Lightweight “current state” snapshot for live tiles
+function liveSummary() {
+  const now = Date.now();
+  const rows = SYMBOLS
+    .map((s) => signalCache[s])
+    .filter(Boolean)
+    .map((r) => ({
+      sym: r.symbol,
+      lastPrice: r.lastPrice,
+      zSent: r.zSent,
+      zPrice: r.zPrice,
+      divergence: r.divergence,
+      infoCount1m: r.infoCount1m,
+      updatedAgoSec: r.updatedAt ? Math.round((now - new Date(r.updatedAt).getTime()) / 1000) : null,
+      counts: r.counts,
+    }));
+  return { now, rows };
+}
+
+// JSON analytics endpoint
+app.get("/analytics", (req, res) => {
+  const windowMin = Math.max(1, Math.min(1440, Number(req.query.windowMin) || 60));
+  const windowMs = windowMin * 60_000;
+
+  const payload = {
+    windowSeconds: windowMs / 1000,
+    impacts: summarizeImpacts(windowMs),
+    live: liveSummary(),
+  };
+  res.setHeader("Cache-Control", "no-store");
+  res.json(payload);
+});
+
+// Server-Sent Events stream for live tiles (updates ~2s)
+app.get("/analytics/stream", (req, res) => {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-store");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders?.();
+
+  const push = () => {
+    const frame = {
+      type: "tick",
+      live: liveSummary(),
+      impacts: summarizeImpacts(ANALYTICS_DEFAULT_WINDOW_MS),
+    };
+    res.write(`data: ${JSON.stringify(frame)}\n\n`);
+  };
+
+  const timer = setInterval(push, 2000);
+  push();
+
+  req.on("close", () => clearInterval(timer));
+});
+/* ------------------------ end Analytics (ADD-ONLY) ------------------------- */
